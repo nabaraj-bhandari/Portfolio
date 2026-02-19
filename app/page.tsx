@@ -1,385 +1,934 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Download,
-  Github,
-  ExternalLink,
-  Calendar,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import Navbar from "@/components/navbar";
-import Footer from "@/components/footer";
+import { Menu, X, Mail, Phone, MapPin, Download, Send } from "lucide-react";
+import { personalInfo, skills, socials, navLinks } from "@/data/data";
 
-import { fadeInUp, staggerChildren } from "@/lib/animations";
+function go(href: string) {
+  document
+    .getElementById(href.replace("#", ""))
+    ?.scrollIntoView({ behavior: "smooth" });
+}
 
-export default function Home() {
-  const [personalInfo, setPersonalInfo] = useState({
-    full_name: "",
-    title: "",
-    description: "",
-    resume_url: "",
-    profile_picture: "",
-  });
+function Navbar() {
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [active, setActive] = useState("home");
 
-  const [isLoadingPersonalInfo, setIsLoadingPersonalInfo] = useState(true);
-  const [featuredBlogs, setFeaturedBlogs] = useState([]);
-  const [isLoadingBlogs, setIsLoadingBlogs] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  // Ensure component is mounted for better viewport detection
   useEffect(() => {
-    setMounted(true);
+    const fn = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
   }, []);
 
   useEffect(() => {
-    // Fetch all data in parallel for better performance
-    const fetchAllData = async () => {
-      try {
-        const [personalInfoResponse, featuredBlogsResponse] = await Promise.all(
-          [
-            fetch("/api/personal-info", {
-              next: { revalidate: 3600 }, // Cache for 1 hour
-            }),
-            fetch("/api/blog?limit=3", {
-              next: { revalidate: 300 }, // Cache for 5 minutes
-            }),
-          ]
-        );
-
-        // Process personal info
-        if (personalInfoResponse.ok) {
-          const info = await personalInfoResponse.json();
-          setPersonalInfo(info);
-        }
-        setIsLoadingPersonalInfo(false);
-
-        // Process featured blogs
-        if (featuredBlogsResponse.ok) {
-          const blogs = await featuredBlogsResponse.json();
-          setFeaturedBlogs(blogs.slice(0, 3)); // Get top 3 blogs
-        }
-        setIsLoadingBlogs(false);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setIsLoadingPersonalInfo(false);
-        setIsLoadingBlogs(false);
-      }
-    };
-
-    fetchAllData();
-  }, []);
-
-  // Optimize animations and ensure cleanup
-  useEffect(() => {
-    // Add will-change hint for smoother animations
-    const animatedElements = document.querySelectorAll(".animate-on-scroll");
-    animatedElements.forEach((el) => {
-      if (el instanceof HTMLElement) {
-        el.style.willChange = "transform, opacity";
-      }
+    const obs = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) setActive(e.target.id);
+        }),
+      { rootMargin: "-40% 0px -55% 0px" },
+    );
+    navLinks.forEach(({ href }) => {
+      const el = document.getElementById(href.replace("#", ""));
+      if (el) obs.observe(el);
     });
-
-    // Cleanup animation styles after they complete
-    const cleanup = () => {
-      animatedElements.forEach((el) => {
-        if (el instanceof HTMLElement) {
-          el.style.willChange = "auto";
-        }
-      });
-    };
-
-    const timer = setTimeout(cleanup, 1000);
-
-    return () => {
-      clearTimeout(timer);
-      cleanup();
-    };
-  }, [mounted]);
+    return () => obs.disconnect();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <header
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        borderBottom: scrolled ? "1px solid #21262d" : "1px solid transparent",
+        background: scrolled ? "rgba(10,10,15,0.95)" : "transparent",
+        backdropFilter: scrolled ? "blur(12px)" : "none",
+        transition: "all 0.2s",
+      }}
+    >
+      <nav className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+        {/* logo */}
+        <button
+          onClick={() => go("#home")}
+          style={{
+            color: "#00d4ff",
+            fontFamily: "inherit",
+            fontSize: 15,
+            fontWeight: 700,
+          }}
+        >
+          ~/{personalInfo.full_name.split(" ")[0].toLowerCase()}
+          <span style={{ color: "#8b949e" }}>$</span>
+        </button>
+
+        {/* desktop links */}
+        <div className="hidden md:flex items-center gap-1">
+          {navLinks.map(({ label, href }) => {
+            const isActive = active === href.replace("#", "");
+            return (
+              <button
+                key={label}
+                onClick={() => go(href)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  color: isActive ? "#00d4ff" : "#c9d1d9",
+                  background: isActive ? "#00d4ff11" : "transparent",
+                  border: isActive
+                    ? "1px solid #00d4ff44"
+                    : "1px solid transparent",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {isActive && <span style={{ color: "#00d4ff" }}>› </span>}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* mobile toggle */}
+        <button
+          onClick={() => setOpen(!open)}
+          aria-label="Toggle menu"
+          style={{
+            color: "#c9d1d9",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 6,
+          }}
+          className="md:hidden"
+        >
+          {open ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </nav>
+
+      {open && (
+        <div
+          style={{ background: "#0a0a0f", borderTop: "1px solid #21262d" }}
+          className="md:hidden px-6 py-3 space-y-1"
+        >
+          {navLinks.map(({ label, href }) => (
+            <button
+              key={label}
+              onClick={() => {
+                go(href);
+                setOpen(false);
+              }}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "10px 16px",
+                borderRadius: 6,
+                fontSize: 14,
+                color: "#c9d1d9",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <span style={{ color: "#00d4ff88" }}>$ </span>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </header>
+  );
+}
+
+function SkillBar({ name, level }: { name: string; level: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.4 },
+    );
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 8,
+        }}
+      >
+        <span style={{ fontSize: 14, color: "#c9d1d9" }}>{name}</span>
+        <span
+          style={{
+            fontSize: 14,
+            color: "#00d4ff",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {level}%
+        </span>
+      </div>
+      <div
+        style={{
+          height: 4,
+          background: "#21262d",
+          borderRadius: 4,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            borderRadius: 4,
+            background: "linear-gradient(90deg, #00d4ff, #0088ff)",
+            boxShadow: "0 0 10px #00d4ff55",
+            width: visible ? `${level}%` : "0%",
+            transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContactForm() {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+  });
+  const [errors, setErrors] = useState<Partial<typeof form>>({});
+  const [submitting, setSub] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const validate = () => {
+    const e: Partial<typeof form> = {};
+    if (!form.name.trim()) e.name = "required";
+    if (!form.email.trim()) e.email = "required";
+    else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "invalid email";
+    if (!form.subject.trim()) e.subject = "required";
+    if (!form.message.trim()) e.message = "required";
+    return e;
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
+    setSub(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setSub(false);
+    setSent(true);
+    setForm({ name: "", email: "", subject: "", message: "" });
+  };
+
+  const baseInput: React.CSSProperties = {
+    width: "100%",
+    padding: "11px 14px",
+    background: "#0d1117",
+    borderRadius: 6,
+    color: "#f0f6fc",
+    fontSize: 14,
+    fontFamily: "inherit",
+    outline: "none",
+    transition: "border-color 0.15s",
+  };
+
+  const inputStyle = (err?: string): React.CSSProperties => ({
+    ...baseInput,
+    border: `1px solid ${err ? "#f85149" : "#21262d"}`,
+  });
+
+  if (sent)
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "60px 0",
+          textAlign: "center",
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            background: "#00ff8811",
+            border: "1px solid #00ff8866",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Send size={20} color="#00ff88" />
+        </div>
+        <p style={{ fontSize: 15, color: "#f0f6fc" }}>message sent</p>
+        <p style={{ fontSize: 14, color: "#8b949e" }}>
+          i&apos;ll get back to you soon
+        </p>
+        <button
+          onClick={() => setSent(false)}
+          style={{
+            fontSize: 13,
+            color: "#00d4ff",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            marginTop: 4,
+          }}
+        >
+          send another
+        </button>
+      </div>
+    );
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      style={{ display: "flex", flexDirection: "column", gap: 16 }}
+    >
+      {(
+        [
+          { key: "name", label: "name", type: "text" },
+          { key: "email", label: "email", type: "email" },
+          { key: "subject", label: "subject", type: "text" },
+        ] as const
+      ).map(({ key, label, type }) => (
+        <div key={key}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 6,
+            }}
+          >
+            <span style={{ fontSize: 13, color: "#00d4ff88" }}>$</span>
+            <span style={{ fontSize: 13, color: "#8b949e" }}>{label}</span>
+            {errors[key] && (
+              <span style={{ fontSize: 13, color: "#f85149" }}>
+                — {errors[key]}
+              </span>
+            )}
+          </div>
+          <input
+            type={type}
+            value={form[key]}
+            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+            style={inputStyle(errors[key])}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = errors[key]
+                ? "#f85149"
+                : "#00d4ff66";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = errors[key]
+                ? "#f85149"
+                : "#21262d";
+            }}
+          />
+        </div>
+      ))}
+      <div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
+          <span style={{ fontSize: 13, color: "#00d4ff88" }}>$</span>
+          <span style={{ fontSize: 13, color: "#8b949e" }}>message</span>
+          {errors.message && (
+            <span style={{ fontSize: 13, color: "#f85149" }}>
+              — {errors.message}
+            </span>
+          )}
+        </div>
+        <textarea
+          rows={5}
+          value={form.message}
+          onChange={(e) => setForm({ ...form, message: e.target.value })}
+          style={{ ...inputStyle(errors.message), resize: "none" }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = errors.message
+              ? "#f85149"
+              : "#00d4ff66";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = errors.message
+              ? "#f85149"
+              : "#21262d";
+          }}
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={submitting}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          padding: "11px 0",
+          borderRadius: 6,
+          fontSize: 14,
+          fontWeight: 500,
+          fontFamily: "inherit",
+          background: "#00d4ff15",
+          border: "1px solid #00d4ff66",
+          color: "#00d4ff",
+          cursor: submitting ? "not-allowed" : "pointer",
+          opacity: submitting ? 0.6 : 1,
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={(e) => {
+          if (!submitting) e.currentTarget.style.background = "#00d4ff22";
+        }}
+        onMouseLeave={(e) => {
+          if (!submitting) e.currentTarget.style.background = "#00d4ff15";
+        }}
+      >
+        {submitting ? "sending..." : "> send_message()"}
+        <Send size={15} />
+      </button>
+    </form>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
+export default function Home() {
+  return (
+    <div
+      style={{ minHeight: "100vh", background: "#0a0a0f", color: "#c9d1d9" }}
+    >
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="min-h-[calc(100vh-4rem)] pt-16 flex items-center justify-center">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial="initial"
-              animate="animate"
-              variants={staggerChildren}
-              className="text-center"
-            >
-              {/* Profile Picture */}
-              <motion.div
-                variants={fadeInUp}
-                className="flex justify-center mb-6 sm:mb-8"
+      {/* ── HERO ── */}
+      <section
+        id="home"
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          paddingTop: 64,
+        }}
+      >
+        <div
+          className="max-w-4xl mx-auto px-6 w-full"
+          style={{ paddingTop: 80, paddingBottom: 80 }}
+        >
+          <div
+            className="flex flex-col md:flex-row md:items-center"
+            style={{ gap: 48 }}
+          >
+            {/* avatar */}
+            <div style={{ flexShrink: 0, margin: "0 auto" }} className="md:m-0">
+              <div
+                style={{
+                  width: 140,
+                  height: 140,
+                  borderRadius: 14,
+                  border: "1px solid #00d4ff44",
+                  boxShadow: "0 0 32px #00d4ff11",
+                  overflow: "hidden",
+                  background: "#0d1117",
+                }}
               >
-                <div className="relative">
-                  <div className="w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 rounded-full bg-gradient-to-r from-primary via-primary/80 to-primary/60 p-1">
-                    <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
-                      {isLoadingPersonalInfo ? (
-                        <div className="w-full h-full bg-muted animate-pulse rounded-full"></div>
-                      ) : personalInfo.profile_picture ? (
-                        <Image
-                          src={personalInfo.profile_picture}
-                          alt={personalInfo.full_name}
-                          width={224}
-                          height={224}
-                          className="w-full h-full object-cover rounded-full"
-                          priority
-                          placeholder="blur"
-                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8A0XqoFXDrOinP2rMZgNNuEV8XaM4mJgVJeg654EZWO5v2KjXZg=="
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center rounded-full">
-                          <span className="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary">
-                            {personalInfo.full_name
-                              ? personalInfo.full_name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .toUpperCase()
-                              : ""}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.h1
-                variants={fadeInUp}
-                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent mb-6 unselectable leading-tight lg:leading-tight xl:leading-tight px-2 sm:px-4"
-              >
-                {isLoadingPersonalInfo ? (
-                  <div className="h-12 sm:h-14 md:h-16 lg:h-20 xl:h-24 bg-gradient-to-r from-muted via-muted to-muted animate-pulse rounded-lg w-full max-w-6xl mx-auto"></div>
+                {personalInfo.profile_picture ? (
+                  <Image
+                    src={personalInfo.profile_picture}
+                    alt={`${personalInfo.full_name} photo`}
+                    width={140}
+                    height={140}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                    priority
+                  />
                 ) : (
-                  <span className="block break-words text-center max-w-6xl mx-auto px-2 sm:px-4">
-                    {personalInfo.title || "Enter your title in admin panel"}
-                  </span>
-                )}
-              </motion.h1>
-
-              <motion.div
-                variants={fadeInUp}
-                className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed unselectable px-2 sm:px-4"
-              >
-                {isLoadingPersonalInfo ? (
-                  <div className="space-y-2">
-                    <div className="h-6 bg-muted animate-pulse rounded w-full"></div>
-                    <div className="h-6 bg-muted animate-pulse rounded w-3/4 mx-auto"></div>
-                  </div>
-                ) : (
-                  <p>
-                    {personalInfo.description ||
-                      "Add your description in the admin panel"}
-                  </p>
-                )}
-              </motion.div>
-
-              <motion.div
-                variants={fadeInUp}
-                className="flex flex-col sm:flex-row gap-4 justify-center"
-              >
-                {isLoadingPersonalInfo ? (
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <div className="h-12 w-40 bg-muted animate-pulse rounded-lg"></div>
-                    <div className="h-12 w-44 bg-muted animate-pulse rounded-lg"></div>
-                  </div>
-                ) : (
-                  <>
-                    <Button size="lg" className="group shadow-lg" asChild>
-                      <Link href="/projects">
-                        View My Work
-                        <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
-                      </Link>
-                    </Button>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="group shadow-lg"
-                      asChild
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 36,
+                        fontWeight: 700,
+                        color: "#00d4ff",
+                      }}
                     >
-                      <a
-                        href={personalInfo.resume_url || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Download className="mr-2 w-4 h-4" />
-                        Download Resume
-                      </a>
-                    </Button>
-                  </>
+                      {personalInfo.full_name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </span>
+                  </div>
                 )}
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
+
+            {/* text */}
+            <div className="text-center md:text-left" style={{ flex: 1 }}>
+              {/* shell prompt */}
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "#8b949e",
+                  marginBottom: 16,
+                  fontFamily: "inherit",
+                }}
+              >
+                <span style={{ color: "#00d4ff" }}>nabaraj</span>
+                <span style={{ color: "#8b949e" }}>@portfolio</span>
+                <span style={{ color: "#6e7681" }}>:~$</span>
+                <span style={{ color: "#c9d1d9" }}> whoami</span>
+              </p>
+
+              <h1
+                style={{
+                  fontSize: "clamp(28px, 5vw, 40px)",
+                  fontWeight: 700,
+                  color: "#f0f6fc",
+                  letterSpacing: "-0.5px",
+                  marginBottom: 6,
+                  lineHeight: 1.2,
+                }}
+              >
+                {personalInfo.full_name}
+              </h1>
+              <p
+                style={{
+                  fontSize: 17,
+                  fontWeight: 500,
+                  color: "#00d4ff",
+                  marginBottom: 16,
+                }}
+              >
+                {personalInfo.title}
+              </p>
+              <p
+                style={{
+                  fontSize: 15,
+                  color: "#c9d1d9",
+                  lineHeight: 1.7,
+                  maxWidth: 460,
+                  marginBottom: 8,
+                }}
+              >
+                <span style={{ color: "#00d4ff66" }}># </span>
+                {personalInfo.description}
+              </p>
+
+              {/* status dot */}
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "#8b949e",
+                  marginBottom: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  justifyContent: "center",
+                }}
+                className="md:justify-start"
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: "#3fb950",
+                    boxShadow: "0 0 8px #3fb950",
+                    display: "inline-block",
+                  }}
+                />
+                available for opportunities
+              </p>
+
+              {/* action buttons */}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  marginBottom: 28,
+                  justifyContent: "center",
+                }}
+                className="md:justify-start"
+              >
+                <button
+                  onClick={() => go("#contact")}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 20px",
+                    borderRadius: 6,
+                    fontSize: 14,
+                    background: "#00d4ff15",
+                    border: "1px solid #00d4ff66",
+                    color: "#00d4ff",
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#00d4ff25")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "#00d4ff15")
+                  }
+                >
+                  <Mail size={15} /> contact()
+                </button>
+                <a
+                  href={personalInfo.resume_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 20px",
+                    borderRadius: 6,
+                    fontSize: 14,
+                    background: "#0d1117",
+                    border: "1px solid #21262d",
+                    color: "#c9d1d9",
+                    fontFamily: "inherit",
+                    textDecoration: "none",
+                    transition: "border-color 0.15s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.borderColor = "#30363d")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.borderColor = "#21262d")
+                  }
+                >
+                  <Download size={15} /> resume.pdf
+                </a>
+              </div>
+
+              {/* socials */}
+              <div
+                style={{ display: "flex", gap: 20, justifyContent: "center" }}
+                className="md:justify-start"
+              >
+                {socials.map(({ icon: Icon, href, label }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    title={label}
+                    style={{ color: "#6e7681", transition: "color 0.15s" }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = "#00d4ff")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = "#6e7681")
+                    }
+                  >
+                    <Icon size={18} />
+                  </a>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Featured Blog Posts */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 blog-section section-divider">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial="initial"
-            whileInView="animate"
-            viewport={{ once: true, amount: 0.1, margin: "-100px" }}
-            variants={staggerChildren}
-            className="text-center animate-on-scroll"
+      {/* ── SKILLS ── */}
+      <section
+        id="skills"
+        style={{ padding: "80px 0", borderTop: "1px solid #21262d" }}
+      >
+        <div className="max-w-4xl mx-auto px-6">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 6,
+            }}
           >
-            <motion.h2
-              variants={fadeInUp}
-              className="text-3xl font-bold mb-12 unselectable"
-            >
-              Latest Blog Posts
-            </motion.h2>
+            <span style={{ fontSize: 14, color: "#00d4ff88" }}>$</span>
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: "#f0f6fc" }}>
+              skills
+            </h2>
+          </div>
+          <p
+            style={{
+              fontSize: 14,
+              color: "#8b949e",
+              marginBottom: 40,
+              marginLeft: 24,
+            }}
+          >
+            # technologies i work with regularly
+          </p>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2"
+            style={{ gap: "28px 64px" }}
+          >
+            {skills.map((s) => (
+              <SkillBar key={s.name} {...s} />
+            ))}
+          </div>
+        </div>
+      </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {isLoadingBlogs ? (
-                // Loading skeletons
-                [...Array(3)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    variants={fadeInUp}
-                    className="rounded-lg overflow-hidden theme-card"
-                  >
-                    <div className="h-48 bg-muted animate-pulse"></div>
-                    <div className="p-6">
-                      <div className="h-6 bg-muted animate-pulse rounded mb-4"></div>
-                      <div className="h-4 bg-muted animate-pulse rounded mb-2 w-2/3"></div>
-                      <div className="h-4 bg-muted animate-pulse rounded mb-4"></div>
-                      <div className="flex gap-2">
-                        <div className="h-6 w-16 bg-muted animate-pulse rounded-full"></div>
-                        <div className="h-6 w-16 bg-muted animate-pulse rounded-full"></div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
-              ) : featuredBlogs.length > 0 ? (
-                featuredBlogs.map((blog: any) => (
-                  <motion.div
-                    key={blog._id}
-                    variants={fadeInUp}
-                    className="group"
-                  >
-                    <Link href={`/blog/${blog._id}`}>
-                      <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 border hover:border-primary/20">
-                        <div className="h-48 overflow-hidden">
-                          <Image
-                            src={blog.image}
-                            alt={blog.title}
-                            width={400}
-                            height={200}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                        <CardContent className="p-6 text-left">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 flex-shrink-0" />
-                              {new Date(blog.date).toLocaleDateString()}
-                            </div>
-                            <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full ml-auto">
-                              {blog.read_time}
-                            </span>
-                          </div>
-                          <h3 className="text-xl font-semibold mb-2 line-clamp-2 text-left">
-                            {blog.title}
-                          </h3>
-                          <p className="text-muted-foreground line-clamp-2 mb-4 text-left">
-                            {blog.excerpt}
-                          </p>
-                          <div className="flex flex-wrap items-start gap-2">
-                            {blog.tags
-                              .slice(0, 2)
-                              .map((tag: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </motion.div>
-                ))
-              ) : (
-                // No blog posts message
-                <motion.div
-                  variants={fadeInUp}
-                  className="col-span-full text-center py-8"
-                >
-                  <p className="text-muted-foreground">
-                    No blog posts published yet.{" "}
-                    <Link href="/blog" className="text-primary hover:underline">
-                      View blog page
-                    </Link>
-                  </p>
-                </motion.div>
-              )}
+      {/* ── CONTACT ── */}
+      <section
+        id="contact"
+        style={{ padding: "80px 0", borderTop: "1px solid #21262d" }}
+      >
+        <div className="max-w-4xl mx-auto px-6">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 6,
+            }}
+          >
+            <span style={{ fontSize: 14, color: "#00d4ff88" }}>$</span>
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: "#f0f6fc" }}>
+              contact
+            </h2>
+          </div>
+          <p
+            style={{
+              fontSize: 14,
+              color: "#8b949e",
+              marginBottom: 48,
+              marginLeft: 24,
+            }}
+          >
+            # open to new opportunities and collaborations
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 48 }}>
+            {/* form */}
+            <div className="lg:col-span-3">
+              <ContactForm />
             </div>
 
-            {/* View All Blog Posts Button */}
-            {!isLoadingBlogs && featuredBlogs.length > 0 && (
-              <motion.div variants={fadeInUp} className="mt-12">
-                <Button variant="outline" asChild>
-                  <Link href="/blog">
-                    Read More Posts
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Link>
-                </Button>
-              </motion.div>
-            )}
-          </motion.div>
+            {/* info sidebar */}
+            <div
+              className="lg:col-span-2"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 28,
+                fontSize: 14,
+              }}
+            >
+              {/* contact details */}
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 20 }}
+              >
+                {[
+                  { icon: Mail, label: "email", value: personalInfo.email },
+                  { icon: Phone, label: "phone", value: personalInfo.phone },
+                  {
+                    icon: MapPin,
+                    label: "location",
+                    value: personalInfo.location,
+                  },
+                ].map(({ icon: Icon, label, value }) => (
+                  <div
+                    key={label}
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <Icon
+                      size={16}
+                      style={{ color: "#00d4ff", marginTop: 2, flexShrink: 0 }}
+                    />
+                    <div>
+                      <p
+                        style={{
+                          fontSize: 12,
+                          color: "#8b949e",
+                          marginBottom: 3,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        {label}
+                      </p>
+                      <p style={{ color: "#c9d1d9" }}>{value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ borderTop: "1px solid #21262d" }} />
+
+              {/* open to */}
+              <div>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "#8b949e",
+                    marginBottom: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  open to
+                </p>
+                <ul
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  {[
+                    "full-stack development",
+                    "open source contributions",
+                    "technical writing",
+                    "research & academic projects",
+                  ].map((item) => (
+                    <li
+                      key={item}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        color: "#c9d1d9",
+                        fontSize: 13,
+                      }}
+                    >
+                      <span style={{ color: "#00d4ff", fontSize: 16 }}>›</span>{" "}
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div style={{ borderTop: "1px solid #21262d" }} />
+
+              {/* socials */}
+              <div>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "#8b949e",
+                    marginBottom: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  find me on
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {socials.map(({ icon: Icon, href, label }) => (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "7px 14px",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        background: "#0d1117",
+                        border: "1px solid #21262d",
+                        color: "#c9d1d9",
+                        fontFamily: "inherit",
+                        textDecoration: "none",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "#00d4ff66";
+                        e.currentTarget.style.color = "#00d4ff";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "#21262d";
+                        e.currentTarget.style.color = "#c9d1d9";
+                      }}
+                    >
+                      <Icon size={14} /> {label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-primary/5 to-purple-600/5">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div
-            initial="initial"
-            whileInView="animate"
-            viewport={{ once: true, amount: 0.1, margin: "-100px" }}
-            variants={staggerChildren}
-            className="animate-on-scroll"
-          >
-            <motion.h2
-              variants={fadeInUp}
-              className="text-3xl font-bold mb-6 unselectable"
-            >
-              Let's Build Something Amazing Together
-            </motion.h2>
-            <motion.p
-              variants={fadeInUp}
-              className="text-xl text-muted-foreground mb-8 leading-relaxed unselectable"
-            >
-              I'm always interested in new opportunities and collaborations.
-            </motion.p>
-            <motion.div variants={fadeInUp}>
-              <Button size="lg" className="group shadow-lg" asChild>
-                <Link href="/contact">
-                  Get In Touch
-                  <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-              </Button>
-            </motion.div>
-          </motion.div>
+      {/* ── FOOTER ── */}
+      <footer style={{ borderTop: "1px solid #21262d", padding: "20px 0" }}>
+        <div
+          className="max-w-4xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between"
+          style={{ gap: 12 }}
+        >
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#00d4ff" }}>
+            ~/{personalInfo.full_name.split(" ")[0].toLowerCase()}
+            <span style={{ color: "#6e7681" }}>$</span>
+          </span>
+          <p style={{ fontSize: 13, color: "#8b949e" }}>
+            © {new Date().getFullYear()} {personalInfo.full_name}
+          </p>
+          <div style={{ display: "flex", gap: 20 }}>
+            {socials.map(({ icon: Icon, href, label }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={label}
+                style={{ color: "#6e7681", transition: "color 0.15s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#00d4ff")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#6e7681")}
+              >
+                <Icon size={16} />
+              </a>
+            ))}
+          </div>
         </div>
-      </section>
-
-      <Footer />
+      </footer>
     </div>
   );
 }
